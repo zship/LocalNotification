@@ -1,28 +1,28 @@
 /*
- Copyright 2013-2014 appPlant UG
-
- Licensed to the Apache Software Foundation (ASF) under one
- or more contributor license agreements.  See the NOTICE file
- distributed with this work for additional information
- regarding copyright ownership.  The ASF licenses this file
- to you under the Apache License, Version 2.0 (the
- "License"); you may not use this file except in compliance
- with the License.  You may obtain a copy of the License at
-
- http://www.apache.org/licenses/LICENSE-2.0
-
- Unless required by applicable law or agreed to in writing,
- software distributed under the License is distributed on an
- "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- KIND, either express or implied.  See the License for the
- specific language governing permissions and limitations
- under the License.
+ * Copyright (c) 2013-2015 by appPlant UG. All rights reserved.
+ *
+ * @APPPLANT_LICENSE_HEADER_START@
+ *
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apache License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://opensource.org/licenses/Apache-2.0/ and read it before using this
+ * file.
+ *
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ *
+ * @APPPLANT_LICENSE_HEADER_END@
  */
 
 #import "UIApplication+APPLocalNotification.h"
 #import "UILocalNotification+APPLocalNotification.h"
-
-#import <Availability.h>
 
 @implementation UIApplication (APPLocalNotification)
 
@@ -34,19 +34,21 @@
  */
 - (BOOL) hasPermissionToScheduleLocalNotifications
 {
-#if __IPHONE_OS_VERSION_MAX_ALLOWED >= 80000
-    UIUserNotificationType types;
-    UIUserNotificationSettings *settings;
+    if ([[UIApplication sharedApplication]
+         respondsToSelector:@selector(registerUserNotificationSettings:)])
+    {
+        UIUserNotificationType types;
+        UIUserNotificationSettings *settings;
 
-    settings = [[UIApplication sharedApplication]
-                currentUserNotificationSettings];
+        settings = [[UIApplication sharedApplication]
+                    currentUserNotificationSettings];
 
-    types = UIUserNotificationTypeAlert|UIUserNotificationTypeBadge|UIUserNotificationTypeSound;
+        types = UIUserNotificationTypeAlert|UIUserNotificationTypeBadge|UIUserNotificationTypeSound;
 
-    return (settings.types & types);
-#else
-    return YES;
-#endif
+        return (settings.types & types);
+    } else {
+        return YES;
+    }
 }
 
 /**
@@ -54,18 +56,23 @@
  */
 - (void) registerPermissionToScheduleLocalNotifications
 {
-#if __IPHONE_OS_VERSION_MAX_ALLOWED >= 80000
-    UIUserNotificationType types;
-    UIUserNotificationSettings *settings;
+    if ([[UIApplication sharedApplication]
+         respondsToSelector:@selector(registerUserNotificationSettings:)])
+    {
+        UIUserNotificationType types;
+        UIUserNotificationSettings *settings;
 
-    types = UIUserNotificationTypeAlert|UIUserNotificationTypeBadge|UIUserNotificationTypeSound;
+        settings = [[UIApplication sharedApplication]
+                    currentUserNotificationSettings];
 
-    settings = [UIUserNotificationSettings settingsForTypes:types
-                                                 categories:nil];
+        types = settings.types|UIUserNotificationTypeAlert|UIUserNotificationTypeBadge|UIUserNotificationTypeSound;
 
-    [[UIApplication sharedApplication]
-     registerUserNotificationSettings:settings];
-#endif
+        settings = [UIUserNotificationSettings settingsForTypes:types
+                                                     categories:nil];
+
+        [[UIApplication sharedApplication]
+         registerUserNotificationSettings:settings];
+    }
 }
 
 #pragma mark -
@@ -91,25 +98,6 @@
 }
 
 /**
- * List of all local notifications which have been scheduled
- * and not yet removed from the notification center.
- */
-- (NSArray*) scheduledLocalNotifications2
-{
-    NSArray* scheduledNotifications = self.scheduledLocalNotifications;
-    NSMutableArray* notifications = [[NSMutableArray alloc] init];
-
-    for (UILocalNotification* notification in scheduledNotifications)
-    {
-        if (notification && [notification wasScheduled]) {
-            [notifications addObject:notification];
-        }
-    }
-
-    return notifications;
-}
-
-/**
  * List of all triggered local notifications which have been scheduled
  * and not yet removed the notification center.
  */
@@ -120,7 +108,7 @@
 
     for (UILocalNotification* notification in notifications)
     {
-        if ([notification wasTriggered]) {
+        if ([notification isTriggered]) {
             [triggeredNotifications addObject:notification];
         }
     }
@@ -129,8 +117,7 @@
 }
 
 /**
- * List of all triggered local notifications IDs which have been scheduled
- * and not yet removed from the notification center.
+ * List of all local notifications IDs.
  */
 - (NSArray*) localNotificationIds
 {
@@ -146,51 +133,62 @@
 }
 
 /**
- * List of all added local notifications IDs which have been scheduled
- * and not yet removed from the notification center.
+ * List of all local notifications IDs from given type.
+ *
+ * @param type
+ *      Notification life cycle type
  */
-- (NSArray*) triggeredLocalNotificationIds
+- (NSArray*) localNotificationIdsByType:(APPLocalNotificationType)type
 {
-    NSArray* notifications = self.triggeredLocalNotifications;
+    NSArray* notifications = self.localNotifications;
     NSMutableArray* ids = [[NSMutableArray alloc] init];
 
     for (UILocalNotification* notification in notifications)
     {
-        [ids addObject:notification.options.id];
+        if (notification.type == type) {
+            [ids addObject:notification.options.id];
+        }
     }
 
     return ids;
 }
 
-/**
- * List of all scheduled local notifications IDs.
- */
-- (NSArray*) scheduledLocalNotificationIds
-{
-    NSArray* notifications = self.scheduledLocalNotifications2;
-    NSMutableArray* ids = [[NSMutableArray alloc] init];
-
-    for (UILocalNotification* notification in notifications)
-    {
-        [ids addObject:notification.options.id];
-    }
-
-    return ids;
-}
-
-/**
- * Get local notification by ID.
+/*
+ * If local notification with ID exists.
  *
  * @param id
  *      Notification ID
  */
-- (UILocalNotification*) localNotificationWithId:(NSString*)id
+- (BOOL) localNotificationExist:(NSNumber*)id
+{
+    return [self localNotificationWithId:id] != NULL;
+}
+
+/* If local notification with ID and type exists
+ *
+ * @param id
+ *      Notification ID
+ * @param type
+ *      Notification life cycle type
+ */
+- (BOOL) localNotificationExist:(NSNumber*)id type:(APPLocalNotificationType)type
+{
+    return [self localNotificationWithId:id andType:type] != NULL;
+}
+
+/**
+ * Get local notification with ID.
+ *
+ * @param id
+ *      Notification ID
+ */
+- (UILocalNotification*) localNotificationWithId:(NSNumber*)id
 {
     NSArray* notifications = self.localNotifications;
 
     for (UILocalNotification* notification in notifications)
     {
-        if ([notification.options.id isEqualToString:id]) {
+        if ([notification.options.id isEqualToNumber:id]) {
             return notification;
         }
     }
@@ -198,39 +196,20 @@
     return NULL;
 }
 
-/**
- * Get scheduled local notification by ID.
+/*
+ * Get local notification with ID and type.
  *
  * @param id
  *      Notification ID
+ * @param type
+ *      Notification life cycle type
  */
-- (UILocalNotification*) scheduledLocalNotificationWithId:(NSString*)id
-{
-    NSArray* notifications = self.scheduledLocalNotifications2;
-
-    for (UILocalNotification* notification in notifications)
-    {
-        if ([notification.options.id isEqualToString:id]) {
-            return notification;
-        }
-    }
-
-    return NULL;
-}
-
-/**
- * Get triggered local notification by ID.
- *
- * @param id
- *      Notification ID
- */
-- (UILocalNotification*) triggeredLocalNotificationWithId:(NSString*)id
+- (UILocalNotification*) localNotificationWithId:(NSNumber*)id andType:(APPLocalNotificationType)type
 {
     UILocalNotification* notification = [self localNotificationWithId:id];
 
-    if (notification && [notification wasTriggered]) {
+    if (notification && notification.type == type)
         return notification;
-    }
 
     return NULL;
 }
@@ -245,39 +224,28 @@
 
     for (UILocalNotification* notification in notifications)
     {
-        [options addObject:notification.userInfo];
+        [options addObject:notification.options.userInfo];
     }
 
     return options;
 }
 
 /**
- * List of properties from all scheduled notifications.
+ * List of properties from all local notifications from given type.
+ *
+ * @param type
+ *      Notification life cycle type
  */
-- (NSArray*) scheduledLocalNotificationOptions
+- (NSArray*) localNotificationOptionsByType:(APPLocalNotificationType)type
 {
-    NSArray* notifications = [self scheduledLocalNotifications2];
+    NSArray* notifications = self.localNotifications;
     NSMutableArray* options = [[NSMutableArray alloc] init];
 
     for (UILocalNotification* notification in notifications)
     {
-        [options addObject:notification.userInfo];
-    }
-
-    return options;
-}
-
-/**
- * List of properties from all triggered notifications.
- */
-- (NSArray*) triggeredLocalNotificationOptions
-{
-    NSArray* notifications = self.triggeredLocalNotifications;
-    NSMutableArray* options = [[NSMutableArray alloc] init];
-
-    for (UILocalNotification* notification in notifications)
-    {
-        [options addObject:notification.userInfo];
+        if (notification.type == type) {
+            [options addObject:notification.options.userInfo];
+        }
     }
 
     return options;
@@ -289,17 +257,17 @@
  * @param ids
  *      Notification IDs
  */
-- (NSArray*) localNotificationOptions:(NSArray*)ids
+- (NSArray*) localNotificationOptionsById:(NSArray*)ids
 {
     UILocalNotification* notification;
     NSMutableArray* options = [[NSMutableArray alloc] init];
 
-    for (NSString* id in ids)
+    for (NSNumber* id in ids)
     {
         notification = [self localNotificationWithId:id];
 
         if (notification) {
-            [options addObject:notification.userInfo];
+            [options addObject:notification.options.userInfo];
         }
     }
 
@@ -307,49 +275,57 @@
 }
 
 /**
- * List of properties from given scheduled notifications.
+ * List of properties from given local notifications.
  *
+ * @param type
+ *      Notification life cycle type
  * @param ids
  *      Notification IDs
  */
-- (NSArray*) scheduledLocalNotificationOptions:(NSArray*)ids
+- (NSArray*) localNotificationOptionsByType:(APPLocalNotificationType)type andId:(NSArray*)ids
 {
     UILocalNotification* notification;
     NSMutableArray* options = [[NSMutableArray alloc] init];
 
-    for (NSString* id in ids)
+    for (NSNumber* id in ids)
     {
-        notification = [self scheduledLocalNotificationWithId:id];
+        notification = [self localNotificationWithId:id];
 
-        if (notification) {
-            [options addObject:notification.userInfo];
+        if (notification && notification.type == type) {
+            [options addObject:notification.options.userInfo];
         }
     }
 
     return options;
 }
 
-/**
- * List of properties from given triggered notifications.
- *
- * @param ids
- *      Notification IDs
+/*
+ * Clear all local notfications.
  */
-- (NSArray*) triggeredLocalNotificationOptions:(NSArray*)ids
+- (void) clearAllLocalNotifications
 {
-    UILocalNotification* notification;
-    NSMutableArray* options = [[NSMutableArray alloc] init];
+    NSArray* notifications = self.triggeredLocalNotifications;
 
-    for (NSString* id in ids)
-    {
-        notification = [self triggeredLocalNotificationWithId:id];
-
-        if (notification) {
-            [options addObject:notification.userInfo];
-        }
+    for (UILocalNotification* notification in notifications) {
+        [self clearLocalNotification:notification];
     }
+}
 
-    return options;
+/*
+ * Clear single local notfication.
+ *
+ * @param notification
+ *      The local notification object
+ */
+- (void) clearLocalNotification:(UILocalNotification*)notification
+{
+    [self cancelLocalNotification:notification];
+
+    if ([notification isRepeating]) {
+        notification.fireDate = notification.options.fireDate;
+
+        [self scheduleLocalNotification:notification];
+    };
 }
 
 @end
