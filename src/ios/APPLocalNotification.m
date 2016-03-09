@@ -25,7 +25,6 @@
 #import "APPLocalNotificationOptions.h"
 #import "UIApplication+APPLocalNotification.h"
 #import "UILocalNotification+APPLocalNotification.h"
-#import "AppDelegate+APPRegisterUserNotificationSettings.h"
 
 @interface APPLocalNotification ()
 
@@ -393,7 +392,7 @@
         }
 
         result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK
-                                    messageAsDictionary:notifications[0]];
+                               messageAsDictionary:[notifications firstObject]];
 
         [self.commandDelegate sendPluginResult:result
                                     callbackId:command.callbackId];
@@ -571,12 +570,11 @@
 {
     UILocalNotification* notification = [localNotification object];
 
-    if ([notification wasUpdated])
+    if ([notification userInfo] == NULL || [notification wasUpdated])
         return;
 
     NSTimeInterval timeInterval = [notification timeIntervalSinceLastTrigger];
-
-    NSString* event = (timeInterval <= 1 && deviceready) ? @"trigger" : @"click";
+    NSString* event = timeInterval < 0.2 && deviceready ? @"trigger" : @"click";
 
     [self fireEvent:event notification:notification];
 
@@ -617,8 +615,7 @@
  */
 - (void) didRegisterUserNotificationSettings:(UIUserNotificationSettings*)settings
 {
-    if (_command)
-    {
+    if (_command) {
         [self hasPermission:_command];
         _command = NULL;
     }
