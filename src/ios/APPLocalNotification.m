@@ -630,27 +630,7 @@
  */
 - (void) pluginInitialize
 {
-    NSNotificationCenter* center = [NSNotificationCenter
-                                    defaultCenter];
-
     eventQueue = [[NSMutableArray alloc] init];
-
-    [center addObserver:self
-               selector:@selector(didReceiveLocalNotification:)
-                   name:CDVLocalNotification
-                 object:nil];
-
-    [center addObserver:self
-               selector:@selector(didFinishLaunchingWithOptions:)
-                   name:UIApplicationDidFinishLaunchingNotification
-                 object:nil];
-
-#ifdef __IPHONE_8_0
-    [center addObserver:self
-               selector:@selector(didRegisterUserNotificationSettings:)
-                   name:UIApplicationRegisterUserNotificationSettings
-                 object:nil];
-#endif
 }
 
 /**
