@@ -124,6 +124,7 @@ public class Builder {
                 .setDefaults(0)
                 .setContentTitle(options.getTitle())
                 .setContentText(options.getText())
+                .setStyle(new NotificationCompat.BigTextStyle().bigText(options.getText()))
                 .setNumber(options.getBadgeNumber())
                 .setTicker(options.getText())
                 .setAutoCancel(options.isAutoClear())
